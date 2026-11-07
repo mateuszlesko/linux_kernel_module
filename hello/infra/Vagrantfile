@@ -1,0 +1,37 @@
+Vagrant.configure("2") do |config|
+  # Global Libvirt Provider Settings
+  config.vm.provider :libvirt do |libvirt|
+    libvirt.driver = "kvm"
+    libvirt.memory = 512
+    libvirt.cpus = 1
+    #libvirt.storage_pool_name = "test-libvirt"
+    libvirt.storage_pool_name = "images"
+  end
+
+# Define the node for kernel module build & test
+config.vm.define "node1" do |node|
+    node.vm.box = "generic/alpine318"
+    node.vm.hostname = "node1.cluster.local"
+    node.vm.network "public_network", ip: ENV["KM_VM_IP"]
+
+    # Simple shell provisioning to update /etc/hosts for basic DNS
+    node.vm.provision "shell", inline: <<-SHELL
+        echo "$KM_VM_IP node1.cluster.local node1" >> /etc/hosts
+        sudo apk add python3
+    SHELL
+
+    #copy a dir from host path to guest path
+    node.vm.provision "file", source: "/home/kali/linux_kernel_module/hello/program", destination: "$HOME/kernel_module/program"
+    
+    # Ansible Provisioner
+    # automatically installs Ansible on the host if needed (if using 'ansible_local') 
+    # or runs from the host machine to configure the guest.
+    node.vm.provision "ansible" do |ansible|
+        ansible.playbook = "playbooks/00_init_env_playbook.yml"
+        ansible.become = true
+        ansible.limit = "all"
+    end
+
+    
+    end
+end

@@ -1,0 +1,45 @@
+---
+- name: Configure Lab Node
+  hosts: all
+  become: true
+  tasks:
+    - name: Ensure pkg cache is up to date (Alpine OS)
+      apk:
+        update_cache: yes
+      when: ansible_facts["os_family"] == "Alpine"
+
+    - name: Install essential tools
+      package:
+        name:
+          - vim
+          - curl
+          - git
+          - bash-completion
+          - build-base #apt build-essential
+          - linux-virt-dev # apt linux-headers
+
+        state: present
+
+    - name: Upgrade packages
+      community.general.apk:
+        upgrade: true
+
+    - name: Check directory of kernel headers 
+      ansible.builtin.stat:
+        path: /lib/modules/6.1.175-0-virt/build
+      register: dir_info
+    
+    - name: Check if kernel headers landed
+      ansible.builtin.assert:
+        that:
+          - dir_info.stat.exists
+        fail_msg: "Kernel headers did not landed"
+    
+    - name: Add a welcome message to /etc/motd
+      copy:
+        content: |
+          ------------------------------------------
+          Welcome to your Automated Vagrant Lab! 🚀
+          Managed by Ansible.
+          ------------------------------------------
+        dest: /etc/motd
